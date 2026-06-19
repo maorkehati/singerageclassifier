@@ -1,0 +1,14 @@
+data/*
+!data/.gitkeep
+checkpoints/*
+!checkpoints/.gitkeep
+experiments/*
+!experiments/.gitkeep
+__pycache__/
+*.pyc
+*.pt
+*.pth
+*.ckpt
+.env
+.venv/
+.ipynb_checkpoints/
