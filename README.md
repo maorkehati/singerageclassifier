@@ -50,6 +50,71 @@ The following are intentionally excluded from version control:
 
 Only placeholder `.gitkeep` files are tracked in those directories.
 
+## Work SLURM workflow
+
+This repo is deployed on the work shared filesystem at:
+
+- Windows: `\\mars\raid\users\maork\Projects\rad_sandbox\Sandbox\singerclassifier`
+- Linux: `/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier`
+
+### A. On home machine
+
+- Edit code in Cursor
+- Commit and push to GitHub
+
+### B. On work Windows machine
+
+- Download the GitHub ZIP to:
+  `C:\Users\maork\Downloads\singerageclassifier-main.zip`
+- Run the PowerShell sync script that copies it to:
+  `\\mars\raid\users\maork\Projects\rad_sandbox\Sandbox\singerclassifier`
+
+### C. On Linux / shared filesystem — first-time setup
+
+```bash
+/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/scripts/setup_work_venv.sh
+```
+
+Creates `.venv`, installs dependencies, and runs import/compile checks (no CUDA required).
+
+### D. Submit dummy GPU job
+
+```bash
+/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/slurm/submit_dummy_gpu.sh
+```
+
+Or from any machine with SSH access:
+
+```bash
+ssh mem-ans1.transchip.com "sbatch /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/slurm/dummy_gpu.sbatch"
+```
+
+### E. Check status
+
+```bash
+/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/slurm/status.sh
+```
+
+### F. Cancel a job
+
+```bash
+/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/slurm/cancel.sh <job_id>
+```
+
+### G. Logs
+
+Job stdout/stderr:
+
+```
+/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/slurm/logs/
+```
+
+Training metrics (after a successful run):
+
+```
+/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/experiments/dummy_gpu/metrics.json
+```
+
 ## Next steps
 
 After confirming the dummy GPU run works on your GPU machine, proceed with the real singing-age classifier implementation using the assignment dataset.
