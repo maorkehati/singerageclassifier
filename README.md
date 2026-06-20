@@ -156,7 +156,34 @@ Cancel a submitted sweep (optional):
 bash scripts/remote_cancel_phase6.sh <job_id>
 ```
 
-The workflow sends non-interactive commands to `mem-ans1`; there is no need to open an interactive SSH shell. Missing splits and sweep configs are regenerated automatically before submission.
+The workflow sends non-interactive commands to `mem-ans1`; there is no need to open an interactive SSH shell. Missing splits, sweep configs, and audio cache entries are regenerated automatically before submission.
+
+### Audio cache
+
+Decoded mono 22.05 kHz waveform tensors are cached outside the repo:
+
+`/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/cache/audio_22050_mono`
+
+This prevents repeated `.m4a` decoding through ffmpeg during every training epoch. The cache is persistent across repo syncs.
+
+To precompute manually:
+
+```bash
+cd /home/maork/Projects/rad_sandbox
+
+/home/maork/Projects/rad_sandbox/Sandbox/SSL_Tabular/.venv/bin/python \
+  -m Sandbox.singerclassifier.scripts.precompute_audio_cache \
+  --split-csv /home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/processed/damp_sag_splits.csv \
+  --cache-dir /home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/cache/audio_22050_mono \
+  --sample-rate 22050
+```
+
+The normal remote submit command also checks/builds the cache before submitting jobs:
+
+```bash
+cd /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier
+bash scripts/remote_submit_phase6.sh 1
+```
 
 ## Progress Log
 

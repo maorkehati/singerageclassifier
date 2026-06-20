@@ -8,6 +8,7 @@ ARTIFACT_ROOT=/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier
 PYTHON=/home/maork/Projects/rad_sandbox/Sandbox/SSL_Tabular/.venv/bin/python
 SPLIT_CSV=$ARTIFACT_ROOT/processed/damp_sag_splits.csv
 SPLIT_SUMMARY=$ARTIFACT_ROOT/data_inspection/split_summary.json
+AUDIO_CACHE_DIR=$ARTIFACT_ROOT/cache/audio_22050_mono
 SWEEP_SPEC=$REPO_ROOT/configs/phase6_sweeps.yaml
 MANIFEST=$ARTIFACT_ROOT/manifests/phase6_sweep_manifest.csv
 CONCURRENCY="${1:-1}"
@@ -28,12 +29,14 @@ export PYTHONPATH="$RAD_ROOT:${PYTHONPATH:-}"
 
 mkdir -p "$ARTIFACT_ROOT/processed" "$ARTIFACT_ROOT/data_inspection" \
   "$ARTIFACT_ROOT/generated_configs/phase6" "$ARTIFACT_ROOT/manifests" \
+  "$AUDIO_CACHE_DIR" \
   "$REPO_ROOT/slurm/logs"
 
 echo "Phase 6 sweep preflight"
 echo "======================="
 echo "Artifact root: $ARTIFACT_ROOT"
 echo "Split CSV:     $SPLIT_CSV"
+echo "Audio cache:   $AUDIO_CACHE_DIR"
 echo "Manifest:      $MANIFEST"
 
 if [[ ! -f "$SPLIT_CSV" ]]; then
@@ -68,6 +71,22 @@ while IFS= read -r config_path; do
     exit 1
   fi
 done < <(tail -n +2 "$MANIFEST" | cut -d, -f6)
+
+echo "Precomputing/checking audio cache..."
+"$PYTHON" -m Sandbox.singerclassifier.scripts.precompute_audio_cache \
+  --split-csv "$SPLIT_CSV" \
+  --cache-dir "$AUDIO_CACHE_DIR" \
+  --sample-rate 22050
+
+echo "Running cache-based dataloader smoke test..."
+"$PYTHON" -m Sandbox.singerclassifier.scripts.smoke_audio_preprocessing \
+  --split-csv "$SPLIT_CSV" \
+  --batch-size 4 \
+  --duration-sec 15 \
+  --num-workers 0 \
+  --use-audio-cache \
+  --audio-cache-dir "$AUDIO_CACHE_DIR" \
+  --strict-audio-cache
 
 N=$(($(wc -l < "$MANIFEST") - 1))
 if [[ "$N" -le 0 ]]; then

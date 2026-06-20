@@ -183,3 +183,4 @@ EXPERIMENTS_ROOT_PATH = REPO_ROOT_PATH / "experiments"
 DATA_ROOT_PATH = Path(
     "/home/maork/Projects/rad_sandbox/Sandbox/data/DAMP-S-AG-partial/DAMP-S-AG"
 )
+AUDIO_CACHE_DIR = DATA_ARTIFACT_ROOT / "cache/audio_22050_mono"

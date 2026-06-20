@@ -192,3 +192,16 @@ Relevant files:
 - `singerclassifier/audio.py`
 - `scripts/smoke_audio_preprocessing.py`
 - `slurm/submit_phase6_sweep.sh`
+
+## 12. Persistent decoded-audio cache added
+
+We added a persistent audio cache outside the synced repo folder. The cache stores decoded mono 22.05 kHz waveform tensors under `/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/cache/audio_22050_mono`.
+
+This matters because repeatedly decoding `.m4a` files through ffmpeg inside every dataloader epoch is slow and can leave the GPU underutilized. Caching decoded waveforms removes the repeated decode bottleneck while preserving random crops, multi-crop evaluation, and waveform-level augmentation.
+
+Relevant files:
+- `scripts/precompute_audio_cache.py`
+- `singerclassifier/audio.py`
+- `singerclassifier/data.py`
+- `configs/phase6_sweeps.yaml`
+- `slurm/submit_phase6_sweep.sh`

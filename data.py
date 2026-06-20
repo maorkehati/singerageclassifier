@@ -9,7 +9,12 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from .audio import crop_or_pad_waveform, load_audio
+from .audio import (
+    audio_cache_path,
+    crop_or_pad_waveform,
+    load_audio,
+    load_cached_waveform,
+)
 from .features import LogMelSpectrogram, SpectrogramAugment
 from .utils import (
     REQUIRED_METADATA_COLUMNS,
@@ -239,6 +244,9 @@ class DampSAGDataset(Dataset):
         augmentation_cfg: dict | None = None,
         return_metadata: bool = False,
         return_waveform: bool = False,
+        use_audio_cache: bool = False,
+        audio_cache_dir: str | Path | None = None,
+        strict_audio_cache: bool = False,
     ) -> None:
         self.split_csv = Path(split_csv)
         self.split = split
@@ -247,6 +255,9 @@ class DampSAGDataset(Dataset):
         self.random_crop = random_crop if random_crop is not None else split == "train"
         self.return_metadata = return_metadata
         self.return_waveform = return_waveform
+        self.use_audio_cache = use_audio_cache
+        self.audio_cache_dir = Path(audio_cache_dir) if audio_cache_dir is not None else None
+        self.strict_audio_cache = strict_audio_cache
         self.target_samples = int(sample_rate * duration_sec)
         self.augment_train = augment_train and split == "train"
         augmentation_cfg = augmentation_cfg or {}
@@ -282,6 +293,53 @@ class DampSAGDataset(Dataset):
                 freq_mask_cfg=augmentation_cfg.get("freq_mask"),
             )
 
+        if self.use_audio_cache and self.audio_cache_dir is None:
+            raise ValueError("audio_cache_dir is required when use_audio_cache=True")
+
+    def _load_waveform(self, row: pd.Series, index: int, audio_path: Path) -> torch.Tensor:
+        performance_id = str(row["performance_id"])
+
+        if self.use_audio_cache:
+            cache_path = audio_cache_path(
+                self.audio_cache_dir,
+                performance_id,
+                source_path=audio_path,
+            )
+            if cache_path.is_file():
+                try:
+                    waveform, _ = load_cached_waveform(
+                        cache_path,
+                        expected_sample_rate=self.sample_rate,
+                    )
+                    return waveform
+                except Exception as exc:
+                    if self.strict_audio_cache:
+                        raise RuntimeError(
+                            f"Invalid audio cache for index {index}: {cache_path}"
+                        ) from exc
+                    print(
+                        f"WARNING: invalid cache {cache_path}, falling back to decode: {exc}"
+                    )
+            elif self.strict_audio_cache:
+                raise FileNotFoundError(
+                    f"Audio cache missing for performance_id={performance_id}: {cache_path}\n"
+                    "Precompute the cache with:\n"
+                    "  python -m Sandbox.singerclassifier.scripts.precompute_audio_cache "
+                    f"--split-csv {self.split_csv} --cache-dir {self.audio_cache_dir}"
+                )
+
+        try:
+            waveform, _ = load_audio(
+                audio_path,
+                target_sample_rate=self.sample_rate,
+                mono=True,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to load audio for index {index}: {audio_path}"
+            ) from exc
+        return waveform
+
     def __len__(self) -> int:
         return len(self.df)
 
@@ -294,16 +352,7 @@ class DampSAGDataset(Dataset):
                 f"Audio file not found for index {index}: {audio_path}"
             )
 
-        try:
-            waveform, _ = load_audio(
-                audio_path,
-                target_sample_rate=self.sample_rate,
-                mono=True,
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                f"Failed to load audio for index {index}: {audio_path}"
-            ) from exc
+        waveform = self._load_waveform(row, index, audio_path)
 
         if self.augment_train and self.waveform_noise_std > 0.0:
             waveform = waveform + torch.randn_like(waveform) * self.waveform_noise_std
@@ -359,6 +408,9 @@ def build_dataloader(
     augmentation_cfg: dict | None = None,
     return_metadata: bool = False,
     return_waveform: bool = False,
+    use_audio_cache: bool = False,
+    audio_cache_dir: str | Path | None = None,
+    strict_audio_cache: bool = False,
     pin_memory: bool | None = None,
 ) -> DataLoader:
     """Build a DataLoader for the requested split."""
@@ -380,6 +432,9 @@ def build_dataloader(
         augmentation_cfg=augmentation_cfg,
         return_metadata=return_metadata,
         return_waveform=return_waveform,
+        use_audio_cache=use_audio_cache,
+        audio_cache_dir=audio_cache_dir,
+        strict_audio_cache=strict_audio_cache,
     )
 
     return DataLoader(

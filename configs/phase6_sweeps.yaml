@@ -42,6 +42,11 @@ defaults:
   augmentation:
     enabled: false
 
+  audio_cache:
+    enabled: true
+    cache_dir: /home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/cache/audio_22050_mono
+    strict: true
+
 experiments:
   majority_baseline:
     family: majority_baseline

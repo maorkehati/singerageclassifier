@@ -65,13 +65,14 @@ def dataloader_kwargs_from_config(
     """Build kwargs for build_dataloader from an experiment config."""
     data_cfg = config["data"]
     aug_cfg = resolve_augmentation_cfg(config)
+    cache_cfg = config.get("audio_cache", {})
 
     if split == "train":
         random_crop = data_cfg.get("random_crop_train", True)
     else:
         random_crop = False
 
-    return {
+    kwargs = {
         "split_csv": data_cfg["split_csv"],
         "split": split,
         "batch_size": data_cfg.get("batch_size", 32),
@@ -87,6 +88,13 @@ def dataloader_kwargs_from_config(
         "augment_train": aug_cfg is not None and split == "train",
         "augmentation_cfg": aug_cfg,
     }
+
+    if cache_cfg.get("enabled", False):
+        kwargs["use_audio_cache"] = True
+        kwargs["audio_cache_dir"] = cache_cfg.get("cache_dir")
+        kwargs["strict_audio_cache"] = cache_cfg.get("strict", False)
+
+    return kwargs
 
 
 def test_metrics_path(config: dict[str, Any]) -> Path:

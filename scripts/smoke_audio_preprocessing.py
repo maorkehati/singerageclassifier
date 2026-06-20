@@ -47,6 +47,9 @@ def smoke_split(
     hop_length: int,
     num_workers: int,
     return_waveform: bool,
+    use_audio_cache: bool,
+    audio_cache_dir: Path | None,
+    strict_audio_cache: bool,
 ) -> None:
     dataset = DampSAGDataset(
         split_csv=split_csv,
@@ -56,6 +59,9 @@ def smoke_split(
         hop_length=hop_length,
         n_mels=n_mels,
         return_waveform=return_waveform,
+        use_audio_cache=use_audio_cache,
+        audio_cache_dir=audio_cache_dir,
+        strict_audio_cache=strict_audio_cache,
     )
     print(f"\n{split} dataset length: {len(dataset)}")
 
@@ -72,6 +78,9 @@ def smoke_split(
         n_mels=n_mels,
         return_metadata=True,
         return_waveform=return_waveform,
+        use_audio_cache=use_audio_cache,
+        audio_cache_dir=audio_cache_dir,
+        strict_audio_cache=strict_audio_cache,
     )[0]
     print(f"{split} sample metadata:")
     for key in (
@@ -96,6 +105,9 @@ def smoke_split(
         hop_length=hop_length,
         n_mels=n_mels,
         return_waveform=return_waveform,
+        use_audio_cache=use_audio_cache,
+        audio_cache_dir=audio_cache_dir,
+        strict_audio_cache=strict_audio_cache,
     )
 
     batch_x, batch_y = next(iter(loader))
@@ -148,10 +160,33 @@ def main() -> None:
         action="store_true",
         help="Return fixed-length waveforms instead of log-mel spectrograms",
     )
+    parser.add_argument(
+        "--use-audio-cache",
+        action="store_true",
+        help="Load decoded waveforms from persistent cache",
+    )
+    parser.add_argument(
+        "--audio-cache-dir",
+        type=Path,
+        default=None,
+        help="Directory containing cached waveform .pt files",
+    )
+    parser.add_argument(
+        "--strict-audio-cache",
+        action="store_true",
+        help="Require cache hits; do not fall back to decoding",
+    )
     args = parser.parse_args()
 
     if args.audio_path is None and args.split_csv is None:
         parser.error("Provide --audio-path and/or --split-csv")
+
+    if args.use_audio_cache:
+        print(f"Audio cache enabled: {args.use_audio_cache}")
+        print(f"Audio cache dir:     {args.audio_cache_dir}")
+        print(f"Strict audio cache:  {args.strict_audio_cache}")
+        if args.audio_cache_dir is None:
+            parser.error("--audio-cache-dir is required when --use-audio-cache is set")
 
     if args.audio_path is not None:
         if not args.audio_path.is_file():
@@ -173,6 +208,9 @@ def main() -> None:
                 hop_length=args.hop_length,
                 num_workers=args.num_workers,
                 return_waveform=args.return_waveform,
+                use_audio_cache=args.use_audio_cache,
+                audio_cache_dir=args.audio_cache_dir,
+                strict_audio_cache=args.strict_audio_cache,
             )
 
         mode = "waveform" if args.return_waveform else "log-mel spectrogram"

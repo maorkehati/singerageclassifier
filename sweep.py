@@ -162,6 +162,7 @@ def build_experiment_config(
         "model": copy.deepcopy(spec.get("defaults", {}).get("model", {})),
         "training": copy.deepcopy(spec.get("defaults", {}).get("training", {})),
         "augmentation": copy.deepcopy(spec.get("defaults", {}).get("augmentation", {})),
+        "audio_cache": copy.deepcopy(spec.get("defaults", {}).get("audio_cache", {})),
         "output": {"root_dir": spec["paths"]["output_root"]},
     }
 

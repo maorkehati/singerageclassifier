@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -9,6 +11,104 @@ from pathlib import Path
 import numpy as np
 import torch
 import torchaudio
+
+CACHE_VERSION = "audio_22050_mono_v1"
+DEFAULT_CACHE_SAMPLE_RATE = 22050
+
+
+def _safe_cache_stem(performance_id: str, source_path: Path | None = None) -> str:
+    stem = str(performance_id).strip()
+    if stem:
+        return re.sub(r"[^\w\-+.]", "_", stem)
+    if source_path is None:
+        raise ValueError("performance_id is required when source_path is not provided")
+    digest = hashlib.sha256(str(source_path).encode("utf-8")).hexdigest()
+    return digest[:16]
+
+
+def audio_cache_path(
+    cache_dir: str | Path,
+    performance_id: str,
+    source_path: str | Path | None = None,
+) -> Path:
+    """Return the deterministic cache file path for a performance."""
+    cache_root = Path(cache_dir)
+    stem = _safe_cache_stem(performance_id, Path(source_path) if source_path else None)
+    return cache_root / f"{stem}.pt"
+
+
+def validate_cached_waveform_payload(
+    payload: dict,
+    expected_sample_rate: int = DEFAULT_CACHE_SAMPLE_RATE,
+) -> tuple[torch.Tensor, int]:
+    if not isinstance(payload, dict):
+        raise ValueError(f"Cache payload must be a dict, got {type(payload).__name__}")
+
+    cache_version = payload.get("cache_version")
+    if cache_version != CACHE_VERSION:
+        raise ValueError(
+            f"Unsupported cache version: {cache_version!r} (expected {CACHE_VERSION})"
+        )
+
+    if "waveform" not in payload:
+        raise ValueError("Cache payload missing 'waveform'")
+
+    waveform = payload["waveform"]
+    if not isinstance(waveform, torch.Tensor):
+        raise ValueError(f"Cache waveform must be a torch.Tensor, got {type(waveform).__name__}")
+
+    waveform = waveform.to(torch.float32)
+    if waveform.ndim != 2:
+        raise ValueError(
+            f"Cache waveform must have shape [channels, samples], got {tuple(waveform.shape)}"
+        )
+    if waveform.numel() == 0:
+        raise ValueError("Cache waveform is empty")
+    if not torch.isfinite(waveform).all():
+        raise ValueError("Cache waveform contains NaN or Inf values")
+
+    sample_rate = payload.get("sample_rate")
+    if sample_rate != expected_sample_rate:
+        raise ValueError(
+            f"Cache sample rate {sample_rate!r} != expected {expected_sample_rate}"
+        )
+
+    return waveform, int(sample_rate)
+
+
+def load_cached_waveform(
+    cache_path: str | Path,
+    expected_sample_rate: int = DEFAULT_CACHE_SAMPLE_RATE,
+) -> tuple[torch.Tensor, int]:
+    """Load and validate a cached waveform tensor."""
+    path = Path(cache_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Audio cache not found: {path}")
+
+    payload = torch.load(path, map_location="cpu", weights_only=False)
+    return validate_cached_waveform_payload(payload, expected_sample_rate)
+
+
+def save_waveform_cache(
+    cache_path: str | Path,
+    waveform: torch.Tensor,
+    sample_rate: int,
+    source_path: str | Path,
+) -> None:
+    """Save a decoded waveform to the persistent cache."""
+    source = Path(source_path)
+    path = Path(cache_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    payload = {
+        "waveform": waveform.to(torch.float32).cpu(),
+        "sample_rate": int(sample_rate),
+        "source_path": str(source),
+        "source_size": int(source.stat().st_size),
+        "source_mtime": float(source.stat().st_mtime),
+        "cache_version": CACHE_VERSION,
+    }
+    torch.save(payload, path)
 
 
 def _load_audio_ffmpeg(
