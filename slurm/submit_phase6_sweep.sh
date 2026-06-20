@@ -11,7 +11,28 @@ SPLIT_SUMMARY=$ARTIFACT_ROOT/data_inspection/split_summary.json
 AUDIO_CACHE_DIR=$ARTIFACT_ROOT/cache/audio_22050_mono
 SWEEP_SPEC=$REPO_ROOT/configs/phase6_sweeps.yaml
 MANIFEST=$ARTIFACT_ROOT/manifests/phase6_sweep_manifest.csv
-CONCURRENCY="${1:-1}"
+
+CONCURRENCY=1
+BUILD_CACHE=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --build-cache)
+      BUILD_CACHE=true
+      shift
+      ;;
+    *)
+      if [[ "$1" =~ ^[0-9]+$ ]]; then
+        CONCURRENCY="$1"
+      else
+        echo "ERROR: Unknown argument: $1" >&2
+        echo "Usage: $0 [concurrency] [--build-cache]" >&2
+        exit 1
+      fi
+      shift
+      ;;
+  esac
+done
 
 if ! command -v sbatch >/dev/null 2>&1; then
   echo "ERROR: sbatch not found. This script must run on the SLURM submission node, e.g. mem-ans1." >&2
@@ -38,6 +59,7 @@ echo "Artifact root: $ARTIFACT_ROOT"
 echo "Split CSV:     $SPLIT_CSV"
 echo "Audio cache:   $AUDIO_CACHE_DIR"
 echo "Manifest:      $MANIFEST"
+echo "Build cache:   $BUILD_CACHE"
 
 if [[ ! -f "$SPLIT_CSV" ]]; then
   echo "Split CSV missing. Generating splits..."
@@ -72,11 +94,31 @@ while IFS= read -r config_path; do
   fi
 done < <(tail -n +2 "$MANIFEST" | cut -d, -f6)
 
-echo "Precomputing/checking audio cache..."
-"$PYTHON" -m Sandbox.singerclassifier.scripts.precompute_audio_cache \
-  --split-csv "$SPLIT_CSV" \
-  --cache-dir "$AUDIO_CACHE_DIR" \
-  --sample-rate 22050
+if [[ "$BUILD_CACHE" == true ]]; then
+  echo "Building audio cache (--build-cache)..."
+  "$PYTHON" -m Sandbox.singerclassifier.scripts.precompute_audio_cache \
+    --split-csv "$SPLIT_CSV" \
+    --cache-dir "$AUDIO_CACHE_DIR" \
+    --sample-rate 22050
+else
+  echo "Validating audio cache (not building)..."
+  if [[ ! -d "$AUDIO_CACHE_DIR" ]]; then
+    CACHE_COUNT=0
+  else
+    CACHE_COUNT="$(find "$AUDIO_CACHE_DIR" -name '*.pt' 2>/dev/null | wc -l | tr -d ' ')"
+  fi
+  SPLIT_COUNT=$(( $(wc -l < "$SPLIT_CSV") - 1 ))
+
+  if [[ "$CACHE_COUNT" -lt "$SPLIT_COUNT" ]]; then
+    echo "ERROR: Audio cache is missing or incomplete." >&2
+    echo "Expected at least $SPLIT_COUNT .pt files, found $CACHE_COUNT." >&2
+    echo "Run this first from the work Linux machine:" >&2
+    echo "cd /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier" >&2
+    echo "bash scripts/precompute_phase6_cache.sh" >&2
+    exit 1
+  fi
+  echo "Audio cache OK: $CACHE_COUNT .pt files (need >= $SPLIT_COUNT)"
+fi
 
 echo "Running cache-based dataloader smoke test..."
 "$PYTHON" -m Sandbox.singerclassifier.scripts.smoke_audio_preprocessing \

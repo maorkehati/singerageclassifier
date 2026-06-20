@@ -123,28 +123,37 @@ Source-controlled code and sweep templates live in the repo. The raw dataset and
 /home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier
 ```
 
-This includes the split CSV, generated concrete configs, and sweep manifest. Keeping these outside the synced repo folder prevents repo syncs from deleting experiment prerequisites.
+This includes the split CSV, generated concrete configs, sweep manifest, and decoded-audio cache. Keeping these outside the synced repo folder prevents repo syncs from deleting experiment prerequisites.
 
-From the work Linux machine, submit the full controlled sweep through the SLURM submission node:
+### Phase 6 workflow
+
+1. Precompute persistent decoded-audio cache:
 
 ```bash
 cd /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier
+bash scripts/precompute_phase6_cache.sh
+```
+
+Optional smoke run (5 files):
+
+```bash
+bash scripts/precompute_phase6_cache.sh --limit 5
+```
+
+2. Submit sweep:
+
+```bash
 bash scripts/remote_submit_phase6.sh 1
 ```
 
-Check status:
+3. Check status/logs:
 
 ```bash
 bash scripts/remote_status.sh
-```
-
-Tail logs:
-
-```bash
 bash scripts/remote_tail_logs.sh 100
 ```
 
-Summarize completed runs:
+4. Summarize:
 
 ```bash
 bash scripts/remote_summarize_phase6.sh
@@ -156,7 +165,7 @@ Cancel a submitted sweep (optional):
 bash scripts/remote_cancel_phase6.sh <job_id>
 ```
 
-The workflow sends non-interactive commands to `mem-ans1`; there is no need to open an interactive SSH shell. Missing splits, sweep configs, and audio cache entries are regenerated automatically before submission.
+The submit script validates the cache but does not build it by default, so submission should be fast. The workflow sends non-interactive commands to `mem-ans1`; there is no need to open an interactive SSH shell.
 
 ### Audio cache
 
@@ -165,25 +174,6 @@ Decoded mono 22.05 kHz waveform tensors are cached outside the repo:
 `/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/cache/audio_22050_mono`
 
 This prevents repeated `.m4a` decoding through ffmpeg during every training epoch. The cache is persistent across repo syncs.
-
-To precompute manually:
-
-```bash
-cd /home/maork/Projects/rad_sandbox
-
-/home/maork/Projects/rad_sandbox/Sandbox/SSL_Tabular/.venv/bin/python \
-  -m Sandbox.singerclassifier.scripts.precompute_audio_cache \
-  --split-csv /home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/processed/damp_sag_splits.csv \
-  --cache-dir /home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/cache/audio_22050_mono \
-  --sample-rate 22050
-```
-
-The normal remote submit command also checks/builds the cache before submitting jobs:
-
-```bash
-cd /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier
-bash scripts/remote_submit_phase6.sh 1
-```
 
 ## Progress Log
 

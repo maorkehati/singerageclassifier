@@ -205,3 +205,14 @@ Relevant files:
 - `singerclassifier/data.py`
 - `configs/phase6_sweeps.yaml`
 - `slurm/submit_phase6_sweep.sh`
+
+## 13. Phase 6 cache precompute separated from submission
+
+We separated decoded-audio cache creation from SLURM submission. The cache is now built explicitly with `scripts/precompute_phase6_cache.sh`, while `remote_submit_phase6.sh` only validates that the cache exists before submitting the array job.
+
+This matters because full cache creation can take time, and doing it inside the remote submission script made the submit command appear frozen before any SLURM jobs were created.
+
+Relevant files:
+- `scripts/precompute_phase6_cache.sh`
+- `scripts/remote_submit_phase6.sh`
+- `slurm/submit_phase6_sweep.sh`
