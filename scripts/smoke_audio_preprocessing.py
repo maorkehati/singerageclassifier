@@ -7,6 +7,7 @@ from pathlib import Path
 
 import torch
 
+from Sandbox.singerclassifier.audio import load_audio
 from Sandbox.singerclassifier.data import DampSAGDataset, build_dataloader
 
 
@@ -21,6 +22,19 @@ def _print_tensor_stats(name: str, x: torch.Tensor) -> None:
 def _expected_time_frames(duration_sec: float, sample_rate: int, hop_length: int) -> int:
     num_samples = int(duration_sec * sample_rate)
     return 1 + (num_samples - 1) // hop_length
+
+
+def smoke_audio_file(audio_path: Path, sample_rate: int) -> None:
+    print(f"Direct audio decode smoke test: {audio_path}")
+    waveform, sr = load_audio(audio_path, target_sample_rate=sample_rate, mono=True)
+    print(f"Waveform shape: {tuple(waveform.shape)}")
+    print(f"Sample rate: {sr}")
+    print(f"Min/max: {waveform.min().item():.4f} / {waveform.max().item():.4f}")
+    if waveform.numel() == 0:
+        raise ValueError("Decoded waveform is empty")
+    if not torch.isfinite(waveform).all():
+        raise ValueError("Decoded waveform contains NaN or Inf values")
+    print("Direct audio decode smoke test passed.")
 
 
 def smoke_split(
@@ -112,10 +126,16 @@ def main() -> None:
         description="Smoke test DAMP-S-AG audio preprocessing"
     )
     parser.add_argument(
+        "--audio-path",
+        type=Path,
+        default=None,
+        help="Path to a single audio file for direct decode testing",
+    )
+    parser.add_argument(
         "--split-csv",
         type=Path,
-        required=True,
-        help="Path to damp_sag_splits.csv",
+        default=None,
+        help="Path to damp_sag_splits.csv for dataloader testing",
     )
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--duration-sec", type=float, default=15.0)
@@ -130,24 +150,33 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if not args.split_csv.is_file():
-        raise FileNotFoundError(f"Split CSV not found: {args.split_csv}")
+    if args.audio_path is None and args.split_csv is None:
+        parser.error("Provide --audio-path and/or --split-csv")
 
-    for split in ("train", "val", "test"):
-        smoke_split(
-            split_csv=args.split_csv,
-            split=split,
-            batch_size=args.batch_size,
-            duration_sec=args.duration_sec,
-            sample_rate=args.sample_rate,
-            n_mels=args.n_mels,
-            hop_length=args.hop_length,
-            num_workers=args.num_workers,
-            return_waveform=args.return_waveform,
-        )
+    if args.audio_path is not None:
+        if not args.audio_path.is_file():
+            raise FileNotFoundError(f"Audio file not found: {args.audio_path}")
+        smoke_audio_file(args.audio_path, sample_rate=args.sample_rate)
 
-    mode = "waveform" if args.return_waveform else "log-mel spectrogram"
-    print(f"\nAudio preprocessing smoke test passed ({mode} mode).")
+    if args.split_csv is not None:
+        if not args.split_csv.is_file():
+            raise FileNotFoundError(f"Split CSV not found: {args.split_csv}")
+
+        for split in ("train", "val", "test"):
+            smoke_split(
+                split_csv=args.split_csv,
+                split=split,
+                batch_size=args.batch_size,
+                duration_sec=args.duration_sec,
+                sample_rate=args.sample_rate,
+                n_mels=args.n_mels,
+                hop_length=args.hop_length,
+                num_workers=args.num_workers,
+                return_waveform=args.return_waveform,
+            )
+
+        mode = "waveform" if args.return_waveform else "log-mel spectrogram"
+        print(f"\nAudio preprocessing smoke test passed ({mode} mode).")
 
 
 if __name__ == "__main__":

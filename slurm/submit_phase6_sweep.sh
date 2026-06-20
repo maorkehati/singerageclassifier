@@ -79,6 +79,11 @@ MAX_INDEX=$((N - 1))
 echo "Submitting Phase 6 sweep array: 0-${MAX_INDEX} with concurrency %${CONCURRENCY}"
 echo "Runs: $N"
 
+PREFLIGHT_AUDIO=$DATA_ROOT/amazing_grace/160395093_196074140.m4a
+echo "Running audio decode preflight: $PREFLIGHT_AUDIO"
+"$PYTHON" -m Sandbox.singerclassifier.scripts.smoke_audio_preprocessing \
+  --audio-path "$PREFLIGHT_AUDIO"
+
 cd "$REPO_ROOT"
 
 SBATCH_OUTPUT="$(sbatch --array="0-${MAX_INDEX}%${CONCURRENCY}" slurm/phase6_sweep_array.sbatch)"

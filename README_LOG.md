@@ -181,3 +181,14 @@ Relevant files:
 - `scripts/run_sweep_manifest.py`
 - `slurm/submit_phase6_sweep.sh`
 - `slurm/phase6_sweep_array.sbatch`
+
+## 11. Audio decoding switched to ffmpeg executable fallback
+
+We fixed the `.m4a` audio decoding failure by adding an ffmpeg subprocess backend to the audio loader. The environment has a static ffmpeg executable but does not expose FFmpeg shared libraries required by TorchCodec, so relying on `torchaudio.load` alone is not reliable for `.m4a` files.
+
+This matters because all Phase 6 CNN experiments depend on loading `.m4a` DAMP-S-AG recordings inside the PyTorch dataloader. The new loader uses the available ffmpeg executable and avoids the missing shared-library dependency.
+
+Relevant files:
+- `singerclassifier/audio.py`
+- `scripts/smoke_audio_preprocessing.py`
+- `slurm/submit_phase6_sweep.sh`
