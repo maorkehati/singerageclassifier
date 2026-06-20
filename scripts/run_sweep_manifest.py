@@ -11,6 +11,7 @@ from Sandbox.singerclassifier.scripts.run_majority_baseline import run_majority_
 from Sandbox.singerclassifier.scripts.train import train
 from Sandbox.singerclassifier.sweep import read_manifest_csv, write_manifest_csv
 from Sandbox.singerclassifier.train_utils import load_yaml
+from Sandbox.singerclassifier.utils import MANIFEST_CSV_PATH, SPLIT_CSV_PATH
 
 
 def should_skip_row(row: dict, skip_existing: bool) -> bool:
@@ -18,6 +19,29 @@ def should_skip_row(row: dict, skip_existing: bool) -> bool:
         return False
     test_metrics = Path(row["run_dir"]) / "test_metrics.json"
     return test_metrics.is_file()
+
+
+def validate_manifest_row_prerequisites(row: dict) -> None:
+    config_path = Path(row["config_path"])
+    if not config_path.is_file():
+        raise FileNotFoundError(
+            f"Config not found for run {row['run_name']}: {config_path}\n"
+            "Regenerate sweep configs with:\n"
+            "  python -m Sandbox.singerclassifier.scripts.generate_sweep_configs "
+            "--sweep-spec configs/phase6_sweeps.yaml"
+        )
+
+    config = load_yaml(config_path)
+    split_csv = Path(config.get("data", {}).get("split_csv", ""))
+    if not split_csv.is_file():
+        raise FileNotFoundError(
+            f"Split CSV not found for run {row['run_name']}: {split_csv}\n"
+            "Regenerate splits with:\n"
+            f"  python -m Sandbox.singerclassifier.scripts.prepare_splits "
+            f"--data-root /home/maork/Projects/rad_sandbox/Sandbox/data/DAMP-S-AG-partial/DAMP-S-AG "
+            f"--output-csv {SPLIT_CSV_PATH} "
+            f"--summary-json /home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/data_inspection/split_summary.json"
+        )
 
 
 def run_manifest_row(row: dict) -> None:
@@ -56,6 +80,8 @@ def run_sweep_manifest(
             print(f"Skipping existing run: {row['run_name']}")
             continue
 
+        validate_manifest_row_prerequisites(row)
+
         print(f"\n=== Starting run {row['index']}: {row['run_name']} ({row['family']}) ===")
         row["status"] = "running"
         write_manifest_csv(manifest_path, rows)
@@ -82,7 +108,12 @@ def run_sweep_manifest(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run sweep manifest experiments")
-    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=MANIFEST_CSV_PATH,
+        help="Path to sweep manifest CSV",
+    )
     parser.add_argument("--index", type=int, default=None)
     parser.add_argument("--family", type=str, default=None)
     parser.add_argument("--skip-existing", action="store_true")

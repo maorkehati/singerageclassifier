@@ -14,7 +14,7 @@ set -euo pipefail
 RAD_ROOT=/home/maork/Projects/rad_sandbox
 REPO_ROOT=/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier
 PYTHON=/home/maork/Projects/rad_sandbox/Sandbox/SSL_Tabular/.venv/bin/python
-MANIFEST="$REPO_ROOT/experiments/manifests/phase6_sweep_manifest.csv"
+MANIFEST=/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/manifests/phase6_sweep_manifest.csv
 
 cd "$RAD_ROOT"
 export PYTHONPATH="$RAD_ROOT:${PYTHONPATH:-}"

@@ -3,8 +3,10 @@ set -euo pipefail
 
 REMOTE_HOST="mem-ans1.transchip.com"
 WORK_REPO_ROOT="/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier"
+ARTIFACT_ROOT="/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier"
 CONCURRENCY="${1:-1}"
-MANIFEST="${WORK_REPO_ROOT}/experiments/manifests/phase6_sweep_manifest.csv"
+MANIFEST="${ARTIFACT_ROOT}/manifests/phase6_sweep_manifest.csv"
+SPLIT_CSV="${ARTIFACT_ROOT}/processed/damp_sag_splits.csv"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -d "$WORK_REPO_ROOT" ]]; then
@@ -20,8 +22,10 @@ REMOTE_CMD="cd ${WORK_REPO_ROOT} && bash slurm/submit_phase6_sweep.sh ${CONCURRE
 echo "Phase 6 remote SLURM submission"
 echo "================================="
 echo "Local repo path:  ${REPO_ROOT}"
+echo "Artifact root:    ${ARTIFACT_ROOT}"
 echo "Remote host:      ${REMOTE_HOST}"
 echo "Concurrency:      ${CONCURRENCY}"
+echo "Split CSV:        ${SPLIT_CSV}"
 echo "Manifest:         ${MANIFEST}"
 echo "Remote command:   ssh ${REMOTE_HOST} \"${REMOTE_CMD}\""
 echo

@@ -9,6 +9,7 @@ from typing import Any
 
 from Sandbox.singerclassifier.sweep import FAMILY_DESCRIPTIONS, read_manifest_csv
 from Sandbox.singerclassifier.train_utils import load_yaml
+from Sandbox.singerclassifier.utils import EXPERIMENTS_ROOT_PATH, MANIFEST_CSV_PATH
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -116,7 +117,7 @@ def save_csv(rows: list[dict[str, str]], path: Path) -> None:
 def summarize_sweep(manifest_path: Path, output_root: Path | None = None) -> dict[str, Any]:
     manifest_rows = read_manifest_csv(manifest_path)
     if output_root is None:
-        output_root = manifest_path.parent.parent
+        output_root = EXPERIMENTS_ROOT_PATH
 
     all_rows = [build_run_row(row) for row in manifest_rows]
     best_rows = select_best_by_family(all_rows)
@@ -143,18 +144,23 @@ def summarize_sweep(manifest_path: Path, output_root: Path | None = None) -> dic
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Summarize sweep manifest results")
-    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=MANIFEST_CSV_PATH,
+        help="Path to sweep manifest CSV",
+    )
     parser.add_argument(
         "--output-root",
         type=Path,
         default=None,
-        help="Directory for summary files (default: experiments root)",
+        help="Directory for summary files (default: repo experiments/)",
     )
     args = parser.parse_args()
 
     output_root = args.output_root
     if output_root is None:
-        output_root = args.manifest.parent.parent
+        output_root = EXPERIMENTS_ROOT_PATH
 
     result = summarize_sweep(args.manifest, output_root)
 

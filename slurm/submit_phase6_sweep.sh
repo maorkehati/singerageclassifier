@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT=/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier
 RAD_ROOT=/home/maork/Projects/rad_sandbox
+REPO_ROOT=/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier
+DATA_ROOT=/home/maork/Projects/rad_sandbox/Sandbox/data/DAMP-S-AG-partial/DAMP-S-AG
+ARTIFACT_ROOT=/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier
 PYTHON=/home/maork/Projects/rad_sandbox/Sandbox/SSL_Tabular/.venv/bin/python
-SWEEP_SPEC="$REPO_ROOT/configs/phase6_sweeps.yaml"
-MANIFEST="$REPO_ROOT/experiments/manifests/phase6_sweep_manifest.csv"
+SPLIT_CSV=$ARTIFACT_ROOT/processed/damp_sag_splits.csv
+SPLIT_SUMMARY=$ARTIFACT_ROOT/data_inspection/split_summary.json
+SWEEP_SPEC=$REPO_ROOT/configs/phase6_sweeps.yaml
+MANIFEST=$ARTIFACT_ROOT/manifests/phase6_sweep_manifest.csv
 CONCURRENCY="${1:-1}"
 
 if ! command -v sbatch >/dev/null 2>&1; then
@@ -22,11 +26,48 @@ fi
 cd "$RAD_ROOT"
 export PYTHONPATH="$RAD_ROOT:${PYTHONPATH:-}"
 
-if [[ ! -f "$MANIFEST" ]]; then
-  echo "Manifest not found. Generating sweep configs..."
-  "$PYTHON" -m Sandbox.singerclassifier.scripts.generate_sweep_configs \
-    --sweep-spec "$SWEEP_SPEC"
+mkdir -p "$ARTIFACT_ROOT/processed" "$ARTIFACT_ROOT/data_inspection" \
+  "$ARTIFACT_ROOT/generated_configs/phase6" "$ARTIFACT_ROOT/manifests" \
+  "$REPO_ROOT/slurm/logs"
+
+echo "Phase 6 sweep preflight"
+echo "======================="
+echo "Artifact root: $ARTIFACT_ROOT"
+echo "Split CSV:     $SPLIT_CSV"
+echo "Manifest:      $MANIFEST"
+
+if [[ ! -f "$SPLIT_CSV" ]]; then
+  echo "Split CSV missing. Generating splits..."
+  "$PYTHON" -m Sandbox.singerclassifier.scripts.prepare_splits \
+    --data-root "$DATA_ROOT" \
+    --output-csv "$SPLIT_CSV" \
+    --summary-json "$SPLIT_SUMMARY" \
+    --train-ratio 0.70 \
+    --val-ratio 0.15 \
+    --test-ratio 0.15 \
+    --seed 42
 fi
+
+echo "Regenerating sweep configs and manifest..."
+"$PYTHON" -m Sandbox.singerclassifier.scripts.generate_sweep_configs \
+  --sweep-spec "$SWEEP_SPEC"
+
+if [[ ! -f "$SPLIT_CSV" ]]; then
+  echo "ERROR: Split CSV still missing after generation attempt: $SPLIT_CSV" >&2
+  exit 1
+fi
+
+if [[ ! -f "$MANIFEST" ]]; then
+  echo "ERROR: Manifest missing after generation attempt: $MANIFEST" >&2
+  exit 1
+fi
+
+while IFS= read -r config_path; do
+  if [[ -n "$config_path" && ! -f "$config_path" ]]; then
+    echo "ERROR: Manifest references missing config: $config_path" >&2
+    exit 1
+  fi
+done < <(tail -n +2 "$MANIFEST" | cut -d, -f6)
 
 N=$(($(wc -l < "$MANIFEST") - 1))
 if [[ "$N" -le 0 ]]; then
@@ -36,11 +77,9 @@ fi
 
 MAX_INDEX=$((N - 1))
 echo "Submitting Phase 6 sweep array: 0-${MAX_INDEX} with concurrency %${CONCURRENCY}"
-echo "Manifest: $MANIFEST"
 echo "Runs: $N"
 
 cd "$REPO_ROOT"
-mkdir -p slurm/logs
 
 SBATCH_OUTPUT="$(sbatch --array="0-${MAX_INDEX}%${CONCURRENCY}" slurm/phase6_sweep_array.sbatch)"
 echo "$SBATCH_OUTPUT"

@@ -263,6 +263,8 @@ def generate_sweep_configs(spec_path: str | Path) -> dict[str, Any]:
     with manifest_json.open("w", encoding="utf-8") as f:
         json.dump(manifest_payload, f, indent=2)
 
+    validate_manifest_configs(manifest_rows)
+
     return {
         "sweep_name": spec["sweep_name"],
         "num_configs": len(manifest_rows),
@@ -272,6 +274,19 @@ def generate_sweep_configs(spec_path: str | Path) -> dict[str, Any]:
         "generated_config_dir": str(generated_dir),
         "manifest_rows": manifest_rows,
     }
+
+
+def validate_manifest_configs(manifest_rows: list[dict[str, Any]]) -> None:
+    missing = [
+        row["config_path"]
+        for row in manifest_rows
+        if not Path(row["config_path"]).is_file()
+    ]
+    if missing:
+        lines = "\n".join(f"  - {path}" for path in missing)
+        raise FileNotFoundError(
+            "Generated manifest references missing config files:\n" + lines
+        )
 
 
 def read_manifest_csv(manifest_path: str | Path) -> list[dict[str, Any]]:

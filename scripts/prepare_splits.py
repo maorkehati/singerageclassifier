@@ -17,6 +17,7 @@ from Sandbox.singerclassifier.splits import (
     save_splits,
     validate_split_ratios,
 )
+from Sandbox.singerclassifier.utils import SPLIT_CSV_PATH, SPLIT_SUMMARY_JSON_PATH
 
 
 def main() -> None:
@@ -32,13 +33,13 @@ def main() -> None:
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=Path("data/processed/damp_sag_splits.csv"),
+        default=SPLIT_CSV_PATH,
         help="Output path for split CSV",
     )
     parser.add_argument(
         "--summary-json",
         type=Path,
-        default=Path("experiments/data_inspection/split_summary.json"),
+        default=SPLIT_SUMMARY_JSON_PATH,
         help="Output path for split summary JSON",
     )
     parser.add_argument("--train-ratio", type=float, default=0.70)

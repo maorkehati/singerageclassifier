@@ -12,6 +12,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from .utils import (
     SPLIT_CSV_OPTIONAL_COLUMNS,
     SPLIT_CSV_REQUIRED_COLUMNS,
+    SPLIT_CSV_PATH,
     ensure_parent_dir,
     percentage_dict,
     save_json,
@@ -415,7 +416,7 @@ def create_splits(
         seed=seed,
         fallback_used=fallback_used,
         leakage_check=leakage_check,
-        output_csv=output_csv or Path("data/processed/damp_sag_splits.csv"),
+        output_csv=output_csv or SPLIT_CSV_PATH,
     )
 
     return split_df, summary

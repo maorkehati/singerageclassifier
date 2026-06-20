@@ -168,3 +168,18 @@ def _json_default(obj: Any) -> Any:
     if isinstance(obj, Path):
         return str(obj)
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+DATA_ARTIFACT_ROOT = Path(
+    "/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier"
+)
+SPLIT_CSV_PATH = DATA_ARTIFACT_ROOT / "processed/damp_sag_splits.csv"
+SPLIT_SUMMARY_JSON_PATH = DATA_ARTIFACT_ROOT / "data_inspection/split_summary.json"
+GENERATED_CONFIG_DIR = DATA_ARTIFACT_ROOT / "generated_configs/phase6"
+MANIFEST_CSV_PATH = DATA_ARTIFACT_ROOT / "manifests/phase6_sweep_manifest.csv"
+MANIFEST_JSON_PATH = DATA_ARTIFACT_ROOT / "manifests/phase6_sweep_manifest.json"
+REPO_ROOT_PATH = Path("/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier")
+EXPERIMENTS_ROOT_PATH = REPO_ROOT_PATH / "experiments"
+DATA_ROOT_PATH = Path(
+    "/home/maork/Projects/rad_sandbox/Sandbox/data/DAMP-S-AG-partial/DAMP-S-AG"
+)

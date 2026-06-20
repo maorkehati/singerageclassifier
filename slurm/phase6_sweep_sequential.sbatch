@@ -13,9 +13,10 @@ set -euo pipefail
 
 RAD_ROOT=/home/maork/Projects/rad_sandbox
 REPO_ROOT=/home/maork/Projects/rad_sandbox/Sandbox/singerclassifier
+ARTIFACT_ROOT=/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier
 PYTHON=/home/maork/Projects/rad_sandbox/Sandbox/SSL_Tabular/.venv/bin/python
-MANIFEST="$REPO_ROOT/experiments/manifests/phase6_sweep_manifest.csv"
-SWEEP_SPEC="$REPO_ROOT/configs/phase6_sweeps.yaml"
+MANIFEST=$ARTIFACT_ROOT/manifests/phase6_sweep_manifest.csv
+SWEEP_SPEC=$REPO_ROOT/configs/phase6_sweeps.yaml
 
 cd "$RAD_ROOT"
 export PYTHONPATH="$RAD_ROOT:${PYTHONPATH:-}"
@@ -26,7 +27,7 @@ hostname
 date
 env -u LD_LIBRARY_PATH nvidia-smi || echo "WARNING: nvidia-smi failed; continuing"
 
-mkdir -p "$REPO_ROOT/slurm/logs" "$REPO_ROOT/experiments/manifests"
+mkdir -p "$REPO_ROOT/slurm/logs" "$ARTIFACT_ROOT/manifests"
 
 if [[ ! -f "$MANIFEST" ]]; then
   "$PYTHON" -m Sandbox.singerclassifier.scripts.generate_sweep_configs \

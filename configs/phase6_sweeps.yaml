@@ -2,11 +2,11 @@ sweep_name: phase6
 seed: 42
 
 paths:
-  split_csv: /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/data/processed/damp_sag_splits.csv
+  split_csv: /home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/processed/damp_sag_splits.csv
   output_root: /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/experiments
-  generated_config_dir: /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/configs/generated/phase6
-  manifest_csv: /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/experiments/manifests/phase6_sweep_manifest.csv
-  manifest_json: /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/experiments/manifests/phase6_sweep_manifest.json
+  generated_config_dir: /home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/generated_configs/phase6
+  manifest_csv: /home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/manifests/phase6_sweep_manifest.csv
+  manifest_json: /home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/manifests/phase6_sweep_manifest.json
 
 defaults:
   data:

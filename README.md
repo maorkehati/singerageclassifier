@@ -117,6 +117,14 @@ Training metrics (after a successful run):
 
 ## Running Phase 6 experiments
 
+Source-controlled code and sweep templates live in the repo. The raw dataset and persistent generated artifacts live outside the repo under:
+
+```text
+/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier
+```
+
+This includes the split CSV, generated concrete configs, and sweep manifest. Keeping these outside the synced repo folder prevents repo syncs from deleting experiment prerequisites.
+
 From the work Linux machine, submit the full controlled sweep through the SLURM submission node:
 
 ```bash
@@ -148,7 +156,7 @@ Cancel a submitted sweep (optional):
 bash scripts/remote_cancel_phase6.sh <job_id>
 ```
 
-The workflow sends non-interactive commands to `mem-ans1`; there is no need to open an interactive SSH shell.
+The workflow sends non-interactive commands to `mem-ans1`; there is no need to open an interactive SSH shell. Missing splits and sweep configs are regenerated automatically before submission.
 
 ## Progress Log
 

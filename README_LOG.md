@@ -41,8 +41,8 @@ Chosen split algorithm:
 Relevant files:
 - `scripts/prepare_splits.py`
 - `singerclassifier/splits.py`
-- `data/processed/damp_sag_splits.csv`
-- `experiments/data_inspection/split_summary.json`
+- `data/processed/damp_sag_splits.csv` (legacy; canonical path is under `Sandbox/data/singerclassifier/processed/`)
+- `experiments/data_inspection/split_summary.json` (legacy; canonical path is under `Sandbox/data/singerclassifier/data_inspection/`)
 
 ## 4. Audio preprocessing implemented
 
@@ -160,5 +160,24 @@ Relevant files:
 - `scripts/remote_tail_logs.sh`
 - `scripts/remote_summarize_phase6.sh`
 - `scripts/remote_cancel_phase6.sh`
+- `slurm/submit_phase6_sweep.sh`
+- `slurm/phase6_sweep_array.sbatch`
+
+## 10. Persistent generated artifacts moved outside the repo
+
+We moved generated artifacts required for experiment execution outside the synced repo folder. The split CSV, generated sweep configs, and sweep manifests now live under `/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier`.
+
+This matters because the repo sync procedure can overwrite the `singerclassifier` folder. Keeping generated experiment prerequisites in the shared data area prevents split files and generated configs from disappearing after code updates.
+
+Persistent artifact paths:
+- Split CSV: `/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/processed/damp_sag_splits.csv`
+- Generated configs: `/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/generated_configs/phase6`
+- Sweep manifest: `/home/maork/Projects/rad_sandbox/Sandbox/data/singerclassifier/manifests/phase6_sweep_manifest.csv`
+
+Relevant files:
+- `configs/phase6_sweeps.yaml`
+- `scripts/prepare_splits.py`
+- `scripts/generate_sweep_configs.py`
+- `scripts/run_sweep_manifest.py`
 - `slurm/submit_phase6_sweep.sh`
 - `slurm/phase6_sweep_array.sbatch`
