@@ -1,4 +1,7 @@
 torch
+torchaudio
 numpy
+pandas
 pyyaml
 tqdm
+scikit-learn

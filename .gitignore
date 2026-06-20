@@ -1,5 +1,7 @@
 data/*
 !data/.gitkeep
+!data/processed/
+!data/processed/.gitkeep
 checkpoints/*
 !checkpoints/.gitkeep
 experiments/*

@@ -115,6 +115,10 @@ Training metrics (after a successful run):
 /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/experiments/dummy_gpu/metrics.json
 ```
 
+## Progress Log
+
+See `README_LOG.md` for a brief numbered log of assignment milestones and implementation decisions.
+
 ## Next steps
 
 After confirming the dummy GPU run works on your GPU machine, proceed with the real singing-age classifier implementation using the assignment dataset.
