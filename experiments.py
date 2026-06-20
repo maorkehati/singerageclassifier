@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .sweep import resolve_augmentation_cfg
+
 PHASE6_CONFIGS = [
     "configs/majority_baseline.yaml",
     "configs/cnn_basic.yaml",
@@ -27,11 +29,11 @@ EXPERIMENT_METADATA: dict[str, dict[str, str]] = {
         "notes": "Tests imbalance-aware training",
     },
     "cnn_augmented": {
-        "main_change": "+ light audio/spectrogram augmentation",
+        "main_change": "+ light/medium augmentation",
         "notes": "Tests generalization from augmentation",
     },
     "cnn_augmented_multicrop": {
-        "main_change": "+ 5-crop evaluation",
+        "main_change": "+ multi-crop evaluation",
         "notes": "Tests recording-level prediction stability",
     },
 }
@@ -62,10 +64,7 @@ def dataloader_kwargs_from_config(
 ) -> dict[str, Any]:
     """Build kwargs for build_dataloader from an experiment config."""
     data_cfg = config["data"]
-    aug_cfg = config.get("augmentation", {})
-    augment_enabled = bool(
-        data_cfg.get("augment_train", False) and aug_cfg.get("enabled", False)
-    )
+    aug_cfg = resolve_augmentation_cfg(config)
 
     if split == "train":
         random_crop = data_cfg.get("random_crop_train", True)
@@ -85,8 +84,8 @@ def dataloader_kwargs_from_config(
         "f_min": data_cfg.get("f_min", 50.0),
         "f_max": data_cfg.get("f_max", 8000.0),
         "random_crop": random_crop,
-        "augment_train": augment_enabled,
-        "augmentation_cfg": aug_cfg if augment_enabled else None,
+        "augment_train": aug_cfg is not None and split == "train",
+        "augmentation_cfg": aug_cfg,
     }
 
 

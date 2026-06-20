@@ -126,3 +126,24 @@ Relevant files:
 - `scripts/run_experiments.py`
 - `scripts/summarize_experiments.py`
 - `experiments/phase6_summary.md`
+
+## 8. Controlled sweep framework implemented
+
+We replaced the ad hoc experiment execution with a controlled sweep framework. A single sweep specification now defines the planned experiment families, generates concrete run configs, creates a manifest, supports local or SLURM execution, and summarizes all completed runs.
+
+This matters because the assignment asks for several meaningful iterations and comparison of performance. The sweep framework makes each iteration reproducible while keeping the search space intentionally small and interpretable rather than exhaustive.
+
+Sweep design:
+- `majority_baseline`: one deterministic baseline.
+- `cnn_basic`: small optimization/dropout sweep for the first scratch CNN.
+- `cnn_balanced`: same sweep with class-weighted loss.
+- `cnn_augmented`: light/medium augmentation variants.
+- `cnn_augmented_multicrop`: multi-crop evaluation variants.
+
+Relevant files:
+- `configs/phase6_sweeps.yaml`
+- `scripts/generate_sweep_configs.py`
+- `scripts/run_sweep_manifest.py`
+- `scripts/summarize_sweep.py`
+- `slurm/phase6_sweep_array.sbatch`
+- `slurm/submit_phase6_sweep.sh`

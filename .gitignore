@@ -6,6 +6,7 @@ checkpoints/*
 !checkpoints/.gitkeep
 experiments/*
 !experiments/.gitkeep
+configs/generated/
 __pycache__/
 *.pyc
 *.pt
