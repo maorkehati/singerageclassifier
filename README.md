@@ -115,6 +115,41 @@ Training metrics (after a successful run):
 /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/experiments/dummy_gpu/metrics.json
 ```
 
+## Running Phase 6 experiments
+
+From the work Linux machine, submit the full controlled sweep through the SLURM submission node:
+
+```bash
+cd /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier
+bash scripts/remote_submit_phase6.sh 1
+```
+
+Check status:
+
+```bash
+bash scripts/remote_status.sh
+```
+
+Tail logs:
+
+```bash
+bash scripts/remote_tail_logs.sh 100
+```
+
+Summarize completed runs:
+
+```bash
+bash scripts/remote_summarize_phase6.sh
+```
+
+Cancel a submitted sweep (optional):
+
+```bash
+bash scripts/remote_cancel_phase6.sh <job_id>
+```
+
+The workflow sends non-interactive commands to `mem-ans1`; there is no need to open an interactive SSH shell.
+
 ## Progress Log
 
 See `README_LOG.md` for a brief numbered log of assignment milestones and implementation decisions.

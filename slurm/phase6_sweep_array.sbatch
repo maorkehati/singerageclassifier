@@ -25,7 +25,7 @@ hostname
 date
 echo "SLURM_JOB_ID=${SLURM_JOB_ID:-unset}"
 echo "SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID:-unset}"
-nvidia-smi || true
+env -u LD_LIBRARY_PATH nvidia-smi || echo "WARNING: nvidia-smi failed; continuing"
 echo "Python: $PYTHON"
 
 if [[ ! -x "$PYTHON" ]]; then

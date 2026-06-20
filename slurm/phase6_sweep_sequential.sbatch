@@ -24,7 +24,7 @@ export LD_LIBRARY_PATH="/usr/local/cuda/targets/x86_64-linux/lib:${LD_LIBRARY_PA
 echo "=== Phase 6 sequential sweep ==="
 hostname
 date
-nvidia-smi || true
+env -u LD_LIBRARY_PATH nvidia-smi || echo "WARNING: nvidia-smi failed; continuing"
 
 mkdir -p "$REPO_ROOT/slurm/logs" "$REPO_ROOT/experiments/manifests"
 

@@ -147,3 +147,18 @@ Relevant files:
 - `scripts/summarize_sweep.py`
 - `slurm/phase6_sweep_array.sbatch`
 - `slurm/submit_phase6_sweep.sh`
+
+## 9. Friendly remote SLURM submission added
+
+We updated the experiment workflow so Phase 6 sweeps can be launched from the work Linux machine with a single local command. The local helper script sends the SLURM submission command non-interactively to `mem-ans1`, where `sbatch` is available, while logs and experiment outputs remain on the shared filesystem.
+
+This matters because the work Linux machine can access the project files but does not provide `sbatch` directly. The new remote submission helpers make the controlled sweep easier to run without manually opening an SSH session or writing one-off SLURM commands.
+
+Relevant files:
+- `scripts/remote_submit_phase6.sh`
+- `scripts/remote_status.sh`
+- `scripts/remote_tail_logs.sh`
+- `scripts/remote_summarize_phase6.sh`
+- `scripts/remote_cancel_phase6.sh`
+- `slurm/submit_phase6_sweep.sh`
+- `slurm/phase6_sweep_array.sbatch`
