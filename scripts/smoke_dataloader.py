@@ -45,6 +45,7 @@ def smoke_split(
         sample_rate=sample_rate,
         duration_sec=duration_sec,
         random_crop=(split == "train"),
+        return_waveform=True,
     )
     print(f"\n{split} dataset length: {len(dataset)}")
 
@@ -56,6 +57,7 @@ def smoke_split(
         sample_rate=sample_rate,
         duration_sec=duration_sec,
         random_crop=(split == "train"),
+        return_waveform=True,
     )
 
     batch = next(iter(loader))
@@ -82,11 +84,13 @@ def smoke_split(
         sample_rate=sample_rate,
         duration_sec=duration_sec,
         return_metadata=True,
+        return_waveform=True,
     )
     sample = meta_dataset[0]
     print(f"{split} sample metadata:")
     for key in ("performance_id", "account_id", "age", "age_bucket", "audio_path"):
-        print(f"  {key}: {sample[key]}")
+        if key in sample:
+            print(f"  {key}: {sample[key]}")
 
 
 def main() -> None:

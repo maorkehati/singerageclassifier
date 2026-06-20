@@ -1,0 +1,39 @@
+run_name: cnn_basic
+seed: 42
+
+data:
+  split_csv: /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/data/processed/damp_sag_splits.csv
+  sample_rate: 22050
+  duration_sec: 15.0
+  n_fft: 1024
+  hop_length: 512
+  n_mels: 80
+  f_min: 50.0
+  f_max: 8000.0
+  batch_size: 32
+  num_workers: 2
+  random_crop_train: true
+  augment_train: false
+  eval_num_crops: 1
+
+model:
+  name: small_mel_cnn
+  num_classes: 3
+  dropout: 0.25
+  classifier_dropout: 0.4
+
+training:
+  epochs: 30
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  optimizer: adamw
+  loss: cross_entropy
+  class_weighted_loss: false
+  early_stopping_metric: val_macro_f1
+  early_stopping_patience: 7
+
+augmentation:
+  enabled: false
+
+output:
+  root_dir: /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/experiments

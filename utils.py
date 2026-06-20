@@ -18,6 +18,26 @@ REQUIRED_METADATA_COLUMNS = (
     "creation_timestamp",
 )
 
+SPLIT_CSV_REQUIRED_COLUMNS = (
+    "performance_id",
+    "account_id",
+    "audio_path",
+    "birth_year",
+    "creation_timestamp",
+    "age",
+    "age_bucket",
+    "age_bucket_id",
+    "split",
+)
+
+SPLIT_CSV_OPTIONAL_COLUMNS = (
+    "gender",
+    "country",
+    "device_os",
+    "locale",
+    "headphones",
+)
+
 
 def normalize_nulls(df: pd.DataFrame) -> pd.DataFrame:
     """Replace NULL-like strings with pandas NA."""
@@ -84,6 +104,13 @@ def value_counts_dict(series: pd.Series, top_n: int | None = None) -> dict[str, 
     if top_n is not None:
         counts = counts.head(top_n)
     return {str(k): int(v) for k, v in counts.items()}
+
+
+def percentage_dict(counts: dict[str, int]) -> dict[str, float]:
+    total = sum(counts.values())
+    if total == 0:
+        return {}
+    return {key: round(value / total * 100.0, 2) for key, value in counts.items()}
 
 
 def recordings_per_account_summary(

@@ -1,0 +1,11 @@
+run_name: majority_baseline
+seed: 42
+
+data:
+  split_csv: /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/data/processed/damp_sag_splits.csv
+
+model:
+  type: majority_class
+
+output:
+  root_dir: /home/maork/Projects/rad_sandbox/Sandbox/singerclassifier/experiments

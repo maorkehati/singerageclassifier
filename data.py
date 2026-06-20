@@ -7,9 +7,10 @@ from typing import Any
 
 import pandas as pd
 import torch
-import torchaudio
 from torch.utils.data import DataLoader, Dataset
 
+from .audio import crop_or_pad_waveform, load_audio
+from .features import LogMelSpectrogram, SpectrogramAugment
 from .utils import (
     REQUIRED_METADATA_COLUMNS,
     compute_age,
@@ -210,23 +211,13 @@ def load_metadata(
     return filtered
 
 
-def _crop_or_pad(
-    waveform: torch.Tensor,
-    target_samples: int,
-    random_crop: bool,
-) -> torch.Tensor:
-    """Crop or zero-pad waveform along the last dimension."""
-    num_samples = waveform.shape[-1]
-    if num_samples > target_samples:
-        if random_crop:
-            start = torch.randint(0, num_samples - target_samples + 1, (1,)).item()
-        else:
-            start = (num_samples - target_samples) // 2
-        return waveform[..., start : start + target_samples]
-    if num_samples < target_samples:
-        pad = target_samples - num_samples
-        return torch.nn.functional.pad(waveform, (0, pad))
-    return waveform
+DATASET_REQUIRED_COLUMNS = (
+    "audio_path",
+    "age_bucket_id",
+    "performance_id",
+    "account_id",
+    "split",
+)
 
 
 class DampSAGDataset(Dataset):
@@ -238,30 +229,57 @@ class DampSAGDataset(Dataset):
         split: str,
         sample_rate: int = 22050,
         duration_sec: float = 15.0,
-        random_crop: bool = False,
-        mono: bool = True,
+        n_fft: int = 1024,
+        hop_length: int = 512,
+        n_mels: int = 80,
+        f_min: float = 50.0,
+        f_max: float = 8000.0,
+        random_crop: bool | None = None,
+        augment_train: bool = False,
+        augmentation_cfg: dict | None = None,
         return_metadata: bool = False,
+        return_waveform: bool = False,
     ) -> None:
         self.split_csv = Path(split_csv)
         self.split = split
         self.sample_rate = sample_rate
         self.duration_sec = duration_sec
-        self.random_crop = random_crop
-        self.mono = mono
+        self.random_crop = random_crop if random_crop is not None else split == "train"
         self.return_metadata = return_metadata
+        self.return_waveform = return_waveform
         self.target_samples = int(sample_rate * duration_sec)
+        self.augment_train = augment_train and split == "train"
+        augmentation_cfg = augmentation_cfg or {}
+        self.waveform_noise_std = float(
+            augmentation_cfg.get("waveform_noise_std", 0.0)
+        ) if self.augment_train else 0.0
 
         if not self.split_csv.is_file():
             raise FileNotFoundError(f"Split CSV not found: {self.split_csv}")
 
         df = pd.read_csv(self.split_csv)
-        if "split" not in df.columns:
-            raise ValueError(f"Split CSV missing 'split' column: {self.split_csv}")
+        validate_required_columns(df, DATASET_REQUIRED_COLUMNS)
 
         self.df = df[df["split"] == split].reset_index(drop=True)
         if self.df.empty:
             raise ValueError(
                 f"No rows available for split '{split}' in {self.split_csv}"
+            )
+
+        self.feature_extractor = LogMelSpectrogram(
+            sample_rate=sample_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            n_mels=n_mels,
+            f_min=f_min,
+            f_max=f_max,
+            normalize=True,
+        )
+        self.spec_augment = None
+        if self.augment_train and augmentation_cfg.get("enabled", False):
+            self.spec_augment = SpectrogramAugment(
+                time_mask_cfg=augmentation_cfg.get("time_mask"),
+                freq_mask_cfg=augmentation_cfg.get("freq_mask"),
             )
 
     def __len__(self) -> int:
@@ -277,39 +295,51 @@ class DampSAGDataset(Dataset):
             )
 
         try:
-            waveform, sr = torchaudio.load(str(audio_path))
+            waveform, _ = load_audio(
+                audio_path,
+                target_sample_rate=self.sample_rate,
+                mono=True,
+            )
         except Exception as exc:
             raise RuntimeError(
                 f"Failed to load audio for index {index}: {audio_path}"
             ) from exc
 
-        if self.mono and waveform.shape[0] > 1:
-            waveform = waveform.mean(dim=0, keepdim=True)
+        if self.augment_train and self.waveform_noise_std > 0.0:
+            waveform = waveform + torch.randn_like(waveform) * self.waveform_noise_std
 
-        if sr != self.sample_rate:
-            waveform = torchaudio.functional.resample(
-                waveform, sr, self.sample_rate
-            )
-
-        waveform = _crop_or_pad(
-            waveform, self.target_samples, self.random_crop
+        waveform = crop_or_pad_waveform(
+            waveform,
+            target_num_samples=self.target_samples,
+            random_crop=self.random_crop,
         )
-        waveform = waveform.to(torch.float32)
 
         label = int(row["age_bucket_id"])
 
+        if self.return_waveform:
+            x = waveform.to(torch.float32)
+        else:
+            x = self.feature_extractor(waveform).to(torch.float32)
+            if self.spec_augment is not None:
+                x = self.spec_augment(x)
+
         if self.return_metadata:
-            return {
-                "waveform": waveform,
+            metadata = {
+                "input": x,
                 "label": label,
                 "performance_id": row["performance_id"],
                 "account_id": row["account_id"],
-                "age": int(row["age"]),
-                "age_bucket": row["age_bucket"],
                 "audio_path": str(audio_path),
+                "split": row["split"],
+                "age_bucket_id": label,
             }
+            if "age" in row and pd.notna(row["age"]):
+                metadata["age"] = int(row["age"])
+            if "age_bucket" in row and pd.notna(row["age_bucket"]):
+                metadata["age_bucket"] = row["age_bucket"]
+            return metadata
 
-        return waveform, label
+        return x, label
 
 
 def build_dataloader(
@@ -319,14 +349,19 @@ def build_dataloader(
     num_workers: int = 2,
     sample_rate: int = 22050,
     duration_sec: float = 15.0,
+    n_fft: int = 1024,
+    hop_length: int = 512,
+    n_mels: int = 80,
+    f_min: float = 50.0,
+    f_max: float = 8000.0,
     random_crop: bool | None = None,
-    mono: bool = True,
+    augment_train: bool = False,
+    augmentation_cfg: dict | None = None,
     return_metadata: bool = False,
+    return_waveform: bool = False,
     pin_memory: bool | None = None,
 ) -> DataLoader:
     """Build a DataLoader for the requested split."""
-    if random_crop is None:
-        random_crop = split == "train"
     if pin_memory is None:
         pin_memory = torch.cuda.is_available()
 
@@ -335,9 +370,16 @@ def build_dataloader(
         split=split,
         sample_rate=sample_rate,
         duration_sec=duration_sec,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        n_mels=n_mels,
+        f_min=f_min,
+        f_max=f_max,
         random_crop=random_crop,
-        mono=mono,
+        augment_train=augment_train,
+        augmentation_cfg=augmentation_cfg,
         return_metadata=return_metadata,
+        return_waveform=return_waveform,
     )
 
     return DataLoader(

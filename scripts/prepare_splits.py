@@ -5,9 +5,18 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from Sandbox.singerclassifier.data import assign_age_buckets, load_metadata
-from Sandbox.singerclassifier.splits import create_splits, save_splits
-from Sandbox.singerclassifier.utils import print_table
+from Sandbox.singerclassifier.data import (
+    DEFAULT_BUCKET_NAMES,
+    DEFAULT_BUCKET_THRESHOLDS,
+    assign_age_buckets,
+    load_metadata,
+)
+from Sandbox.singerclassifier.splits import (
+    create_splits,
+    print_split_summary,
+    save_splits,
+    validate_split_ratios,
+)
 
 
 def main() -> None:
@@ -36,21 +45,11 @@ def main() -> None:
     parser.add_argument("--val-ratio", type=float, default=0.15)
     parser.add_argument("--test-ratio", type=float, default=0.15)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument(
-        "--bucket-threshold-low",
-        type=int,
-        default=25,
-        help="Upper bound (exclusive) for under_25 bucket",
-    )
-    parser.add_argument(
-        "--bucket-threshold-high",
-        type=int,
-        default=35,
-        help="Upper bound (exclusive) for age_25_34 bucket",
-    )
     parser.add_argument("--min-age", type=int, default=10)
     parser.add_argument("--max-age", type=int, default=90)
     args = parser.parse_args()
+
+    validate_split_ratios(args.train_ratio, args.val_ratio, args.test_ratio)
 
     print(f"Loading metadata from: {args.data_root}")
     df = load_metadata(args.data_root, min_age=args.min_age, max_age=args.max_age)
@@ -58,28 +57,30 @@ def main() -> None:
 
     df, class_mapping = assign_age_buckets(
         df,
-        thresholds=(args.bucket_threshold_low, args.bucket_threshold_high),
+        thresholds=DEFAULT_BUCKET_THRESHOLDS,
+        bucket_names=DEFAULT_BUCKET_NAMES,
     )
 
     split_df, summary = create_splits(
         df,
+        class_mapping=class_mapping,
         train_ratio=args.train_ratio,
         val_ratio=args.val_ratio,
         test_ratio=args.test_ratio,
         seed=args.seed,
+        output_csv=args.output_csv,
     )
 
-    summary["class_mapping"] = class_mapping
     save_splits(
         split_df,
         output_csv=args.output_csv,
         summary=summary,
         summary_json=args.summary_json,
-        class_mapping=class_mapping,
     )
 
-    print_table("Final row counts", summary["rows_per_split"])
-    print_table("Final account counts", summary["accounts_per_split"])
+    print_split_summary(summary, args.output_csv, args.summary_json)
+    print(f"\nSaved split CSV to: {args.output_csv}")
+    print(f"Saved split summary to: {args.summary_json}")
 
 
 if __name__ == "__main__":
