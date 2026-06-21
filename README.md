@@ -165,6 +165,14 @@ Cancel a submitted sweep (optional):
 bash scripts/remote_cancel_phase6.sh <job_id>
 ```
 
+Rerun only selected manifest indexes (for example invalidated augmented or multi-crop runs):
+
+```bash
+bash scripts/remote_submit_phase6_indexes.sh 9,10,11,12,13,14 1
+```
+
+Delete the affected experiment folders before rerunning selected indexes.
+
 The submit script validates the cache but does not build it by default, so submission should be fast. The workflow sends non-interactive commands to `mem-ans1`; there is no need to open an interactive SSH shell.
 
 ### Audio cache

@@ -11,7 +11,11 @@ import torch
 import torch.nn as nn
 
 from Sandbox.singerclassifier.data import build_dataloader
-from Sandbox.singerclassifier.experiments import dataloader_kwargs_from_config
+from Sandbox.singerclassifier.experiments import (
+    augmentation_diagnostics_from_config,
+    dataloader_kwargs_from_config,
+    print_augmentation_diagnostics,
+)
 from Sandbox.singerclassifier.metrics import (
     save_classification_report,
     save_confusion_matrix_plot,
@@ -110,6 +114,9 @@ def train(config: dict[str, Any]) -> Path:
     git_hash = get_git_commit_hash()
     if git_hash:
         resolved_config["git_commit"] = git_hash
+
+    diag = print_augmentation_diagnostics(resolved_config)
+    resolved_config["augmentation_diagnostics"] = diag
     save_yaml(resolved_config, run_dir / "config.yaml")
 
     train_loader, val_loader = build_dataloaders(resolved_config)

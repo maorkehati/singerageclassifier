@@ -258,14 +258,20 @@ def run_multicrop_inference(
     split: str,
     device: torch.device,
     class_names: list[str],
+    max_samples: int | None = None,
 ) -> dict[str, Any]:
     """Evaluate with deterministic multi-crop logit averaging."""
     from .audio import crop_from_start, deterministic_crop_starts, load_audio
-    from .features import LogMelSpectrogram
+    from .features import LogMelSpectrogram, assert_waveform_feature_extractor_same_device
     from .metrics import compute_classification_metrics
 
     data_cfg = config["data"]
     num_crops = int(data_cfg.get("eval_num_crops", 1))
+    if num_crops <= 1:
+        raise ValueError(
+            f"run_multicrop_inference requires eval_num_crops > 1, got {num_crops}"
+        )
+
     split_csv = data_cfg["split_csv"]
     sample_rate = data_cfg.get("sample_rate", 22050)
     duration_sec = data_cfg.get("duration_sec", 15.0)
@@ -295,7 +301,10 @@ def run_multicrop_inference(
     total_loss = 0.0
 
     with torch.no_grad():
-        for row_idx, row in split_df.iterrows():
+        for _, row in split_df.iterrows():
+            if max_samples is not None and len(all_labels) >= max_samples:
+                break
+
             audio_path = Path(str(row["audio_path"]))
             if not audio_path.is_file():
                 raise FileNotFoundError(f"Audio file not found: {audio_path}")
@@ -311,15 +320,26 @@ def run_multicrop_inference(
                 num_crops,
             )
 
-            logits_list = []
-            for start in starts:
-                crop = crop_from_start(waveform, start, target_samples)
-                mel = feature_extractor(crop).unsqueeze(0).to(device)
-                logits_list.append(model(mel))
+            crop_tensors = [
+                crop_from_start(waveform, start, target_samples) for start in starts
+            ]
+            waveform_crops = torch.stack(crop_tensors, dim=0).to(
+                device, non_blocking=torch.cuda.is_available()
+            )
+            assert_waveform_feature_extractor_same_device(
+                waveform_crops, feature_extractor
+            )
 
-            avg_logits = torch.stack(logits_list, dim=0).mean(dim=0).squeeze(0)
+            log_mels = feature_extractor(waveform_crops)
+            if log_mels.ndim == 3:
+                log_mels = log_mels.unsqueeze(1)
+
+            logits = model(log_mels)
+            avg_logits = logits.mean(dim=0)
             label = torch.tensor(int(row["age_bucket_id"]), device=device)
-            total_loss += criterion(avg_logits.unsqueeze(0), label.unsqueeze(0)).item()
+            total_loss += criterion(
+                avg_logits.unsqueeze(0), label.unsqueeze(0)
+            ).item()
 
             probs = torch.softmax(avg_logits, dim=0)
             pred = int(avg_logits.argmax().item())

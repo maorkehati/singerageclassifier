@@ -130,6 +130,16 @@ echo "Running cache-based dataloader smoke test..."
   --audio-cache-dir "$AUDIO_CACHE_DIR" \
   --strict-audio-cache
 
+echo "Running augmentation wiring smoke test..."
+"$PYTHON" -m Sandbox.singerclassifier.scripts.smoke_augmentation \
+  --split-csv "$SPLIT_CSV"
+
+SAMPLE_AUG_CONFIG="$ARTIFACT_ROOT/generated_configs/phase6/cnn_augmented_lr0p001_auglight.yaml"
+if [[ -f "$SAMPLE_AUG_CONFIG" ]]; then
+  "$PYTHON" -m Sandbox.singerclassifier.scripts.smoke_augmentation \
+    --config "$SAMPLE_AUG_CONFIG"
+fi
+
 N=$(($(wc -l < "$MANIFEST") - 1))
 if [[ "$N" -le 0 ]]; then
   echo "ERROR: Manifest has no runs: $MANIFEST" >&2

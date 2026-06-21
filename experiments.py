@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .sweep import resolve_augmentation_cfg
+from .sweep import get_augmentation_profile_name, resolve_augmentation_cfg
 
 PHASE6_CONFIGS = [
     "configs/majority_baseline.yaml",
@@ -58,19 +58,69 @@ def is_majority_baseline_config(config: dict[str, Any]) -> bool:
     return config.get("model", {}).get("type") == "majority_class"
 
 
+def _augment_train_flag(config: dict[str, Any], split: str) -> bool:
+    data_cfg = config.get("data", {})
+    return bool(
+        data_cfg.get("augment_train", config.get("augment_train", False))
+    ) and split == "train"
+
+
+def augmentation_diagnostics_from_config(config: dict[str, Any]) -> dict[str, Any]:
+    """Summarize augmentation and audio-cache settings for logging."""
+    data_cfg = config.get("data", {})
+    cache_cfg = config.get("audio_cache", {})
+    augment_train = bool(
+        data_cfg.get("augment_train", config.get("augment_train", False))
+    )
+    profile = get_augmentation_profile_name(config)
+    resolved = resolve_augmentation_cfg(config) if augment_train else None
+
+    return {
+        "augment_train": augment_train,
+        "augmentation_profile": profile,
+        "resolved_augmentation": resolved,
+        "audio_cache": {
+            "enabled": bool(cache_cfg.get("enabled", False)),
+            "cache_dir": cache_cfg.get("cache_dir"),
+            "strict": bool(cache_cfg.get("strict", False)),
+        },
+    }
+
+
+def print_augmentation_diagnostics(config: dict[str, Any]) -> dict[str, Any]:
+    """Print and return augmentation diagnostics for a run config."""
+    diag = augmentation_diagnostics_from_config(config)
+    print("\nAugmentation diagnostics")
+    print("------------------------")
+    print(f"augment_train: {diag['augment_train']}")
+    print(f"augmentation_profile: {diag['augmentation_profile']}")
+    print(f"resolved_augmentation: {diag['resolved_augmentation']}")
+    cache = diag["audio_cache"]
+    print(
+        "audio_cache: "
+        f"enabled={cache['enabled']} "
+        f"strict={cache['strict']} "
+        f"cache_dir={cache['cache_dir']}"
+    )
+    return diag
+
+
 def dataloader_kwargs_from_config(
     config: dict[str, Any],
     split: str,
 ) -> dict[str, Any]:
     """Build kwargs for build_dataloader from an experiment config."""
     data_cfg = config["data"]
-    aug_cfg = resolve_augmentation_cfg(config)
+    aug_cfg = resolve_augmentation_cfg(config) if _augment_train_flag(config, split) else None
     cache_cfg = config.get("audio_cache", {})
 
     if split == "train":
         random_crop = data_cfg.get("random_crop_train", True)
     else:
         random_crop = False
+
+    augment_train = _augment_train_flag(config, split)
+    profile = get_augmentation_profile_name(config) if augment_train else None
 
     kwargs = {
         "split_csv": data_cfg["split_csv"],
@@ -85,7 +135,10 @@ def dataloader_kwargs_from_config(
         "f_min": data_cfg.get("f_min", 50.0),
         "f_max": data_cfg.get("f_max", 8000.0),
         "random_crop": random_crop,
-        "augment_train": aug_cfg is not None and split == "train",
+        "augment_train": augment_train,
+        "augmentation_profile": profile if profile != "none" else None,
+        "augmentation_config": aug_cfg,
+        # Backward-compatible alias used by older call sites.
         "augmentation_cfg": aug_cfg,
     }
 

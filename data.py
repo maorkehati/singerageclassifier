@@ -241,6 +241,8 @@ class DampSAGDataset(Dataset):
         f_max: float = 8000.0,
         random_crop: bool | None = None,
         augment_train: bool = False,
+        augmentation_profile: str | None = None,
+        augmentation_config: dict | None = None,
         augmentation_cfg: dict | None = None,
         return_metadata: bool = False,
         return_waveform: bool = False,
@@ -260,9 +262,14 @@ class DampSAGDataset(Dataset):
         self.strict_audio_cache = strict_audio_cache
         self.target_samples = int(sample_rate * duration_sec)
         self.augment_train = augment_train and split == "train"
-        augmentation_cfg = augmentation_cfg or {}
+        self.augmentation_profile = augmentation_profile
+
+        resolved_aug = augmentation_config if augmentation_config is not None else augmentation_cfg
+        resolved_aug = resolved_aug or {}
+        self.augmentation_config = resolved_aug
+
         self.waveform_noise_std = float(
-            augmentation_cfg.get("waveform_noise_std", 0.0)
+            resolved_aug.get("waveform_noise_std", 0.0)
         ) if self.augment_train else 0.0
 
         if not self.split_csv.is_file():
@@ -287,11 +294,17 @@ class DampSAGDataset(Dataset):
             normalize=True,
         )
         self.spec_augment = None
-        if self.augment_train and augmentation_cfg.get("enabled", False):
-            self.spec_augment = SpectrogramAugment(
-                time_mask_cfg=augmentation_cfg.get("time_mask"),
-                freq_mask_cfg=augmentation_cfg.get("freq_mask"),
+        if self.augment_train and resolved_aug:
+            time_mask_cfg = resolved_aug.get("time_mask") or {}
+            freq_mask_cfg = resolved_aug.get("freq_mask") or {}
+            masks_enabled = bool(time_mask_cfg.get("enabled")) or bool(
+                freq_mask_cfg.get("enabled")
             )
+            if resolved_aug.get("enabled", False) or masks_enabled:
+                self.spec_augment = SpectrogramAugment(
+                    time_mask_cfg=time_mask_cfg,
+                    freq_mask_cfg=freq_mask_cfg,
+                )
 
         if self.use_audio_cache and self.audio_cache_dir is None:
             raise ValueError("audio_cache_dir is required when use_audio_cache=True")
@@ -354,14 +367,14 @@ class DampSAGDataset(Dataset):
 
         waveform = self._load_waveform(row, index, audio_path)
 
-        if self.augment_train and self.waveform_noise_std > 0.0:
-            waveform = waveform + torch.randn_like(waveform) * self.waveform_noise_std
-
         waveform = crop_or_pad_waveform(
             waveform,
             target_num_samples=self.target_samples,
             random_crop=self.random_crop,
         )
+
+        if self.augment_train and self.waveform_noise_std > 0.0:
+            waveform = waveform + torch.randn_like(waveform) * self.waveform_noise_std
 
         label = int(row["age_bucket_id"])
 
@@ -405,6 +418,8 @@ def build_dataloader(
     f_max: float = 8000.0,
     random_crop: bool | None = None,
     augment_train: bool = False,
+    augmentation_profile: str | None = None,
+    augmentation_config: dict | None = None,
     augmentation_cfg: dict | None = None,
     return_metadata: bool = False,
     return_waveform: bool = False,
@@ -429,6 +444,8 @@ def build_dataloader(
         f_max=f_max,
         random_crop=random_crop,
         augment_train=augment_train,
+        augmentation_profile=augmentation_profile,
+        augmentation_config=augmentation_config,
         augmentation_cfg=augmentation_cfg,
         return_metadata=return_metadata,
         return_waveform=return_waveform,

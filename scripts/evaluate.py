@@ -31,6 +31,7 @@ def evaluate_run(
     split: str = "test",
     checkpoint: str = "best_model.pt",
     device: torch.device | None = None,
+    max_samples: int | None = None,
 ) -> dict[str, Any]:
     """Load a checkpoint and evaluate on the requested split."""
     run_dir = Path(run_dir)
@@ -65,6 +66,7 @@ def evaluate_run(
             split=split,
             device=device,
             class_names=class_names,
+            max_samples=max_samples,
         )
     else:
         loader = build_dataloader(**dataloader_kwargs_from_config(config, split))
@@ -102,13 +104,28 @@ def main() -> None:
         help="Checkpoint filename inside run-dir",
     )
     parser.add_argument("--device", type=str, default=None)
+    parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=None,
+        help="Limit multi-crop evaluation to the first N recordings (debug/smoke)",
+    )
+    parser.add_argument(
+        "--max-batches",
+        type=int,
+        default=None,
+        help="Alias for --max-samples in multi-crop evaluation mode",
+    )
     args = parser.parse_args()
+
+    max_samples = args.max_samples if args.max_samples is not None else args.max_batches
 
     evaluate_run(
         run_dir=args.run_dir,
         split=args.split,
         checkpoint=args.checkpoint,
         device=get_device(args.device) if args.device else None,
+        max_samples=max_samples,
     )
 
 

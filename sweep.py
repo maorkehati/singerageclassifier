@@ -124,20 +124,52 @@ def generate_run_name(family: str, sweep_params: dict[str, Any]) -> str:
 
 def resolve_augmentation_cfg(config: dict[str, Any]) -> dict[str, Any] | None:
     data_cfg = config.get("data", {})
-    aug_cfg = copy.deepcopy(config.get("augmentation", {}))
-    if not data_cfg.get("augment_train", False):
+    # Support misplaced top-level augment_train for backward compatibility.
+    augment_train = bool(
+        data_cfg.get("augment_train", config.get("augment_train", False))
+    )
+    if not augment_train:
         return None
 
+    aug_cfg = copy.deepcopy(config.get("augmentation", {}))
     profile = aug_cfg.pop("profile", None)
     if profile:
         profile_cfg = AUGMENTATION_PROFILES.get(str(profile))
         if profile_cfg is None:
             raise ValueError(f"Unknown augmentation profile: {profile}")
-        aug_cfg = deep_merge(profile_cfg, aug_cfg)
+        # Profile settings must override sweep defaults such as enabled: false.
+        aug_cfg = deep_merge(aug_cfg, profile_cfg)
 
-    if aug_cfg.get("enabled", True):
-        return aug_cfg
-    return None
+    if not aug_cfg.get("enabled", True):
+        return None
+
+    time_mask = aug_cfg.get("time_mask") or {}
+    freq_mask = aug_cfg.get("freq_mask") or {}
+    has_noise = float(aug_cfg.get("waveform_noise_std", 0.0)) > 0.0
+    has_time_mask = bool(time_mask.get("enabled", False))
+    has_freq_mask = bool(freq_mask.get("enabled", False))
+    if not (has_noise or has_time_mask or has_freq_mask):
+        raise ValueError(
+            "augment_train=true but resolved augmentation has no active operations: "
+            f"{aug_cfg}"
+        )
+
+    return aug_cfg
+
+
+def get_augmentation_profile_name(config: dict[str, Any]) -> str:
+    """Return the configured profile name, or none/custom."""
+    data_cfg = config.get("data", {})
+    augment_train = bool(
+        data_cfg.get("augment_train", config.get("augment_train", False))
+    )
+    if not augment_train:
+        return "none"
+
+    profile = config.get("augmentation", {}).get("profile")
+    if profile:
+        return str(profile)
+    return "custom"
 
 
 def build_experiment_config(

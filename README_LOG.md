@@ -216,3 +216,65 @@ Relevant files:
 - `scripts/precompute_phase6_cache.sh`
 - `scripts/remote_submit_phase6.sh`
 - `slurm/submit_phase6_sweep.sh`
+
+## 14. Augmentation wiring and multi-crop device fixes
+
+We fixed two Phase 6 bugs that invalidated augmented and multi-crop experiment runs.
+
+First, sweep-generated configs kept `augmentation.enabled: false` from Phase 6 defaults, and that value overwrote profile settings such as `augmentation.profile: light/medium`. As a result, augmented runs duplicated balanced runs byte-for-byte. The profile merge order was corrected, train-only augmentation is now driven by `data.augment_train`, waveform noise is applied after crop/pad (before log-mel), and spectrogram masks remain after log-mel.
+
+Second, multi-crop evaluation moved the log-mel extractor to CUDA while waveform crops stayed on CPU, causing `stft input and window must be on the same device`. Feature extraction now stays on CPU and only the resulting log-mels are moved to the GPU.
+
+Invalid manifest rows (typically indexes 9–14) should be rerun with `scripts/rerun_phase6_invalid.sh` or `scripts/remote_rerun_phase6_invalid.sh`. Submission preflight now includes `scripts/smoke_augmentation.py`.
+
+Relevant files:
+- `sweep.py`
+- `experiments.py`
+- `data.py`
+- `train_utils.py`
+- `scripts/smoke_augmentation.py`
+- `scripts/rerun_phase6_invalid.sh`
+- `scripts/remote_rerun_phase6_invalid.sh`
+- `slurm/submit_phase6_sweep.sh`
+- `slurm/phase6_sweep_array.sbatch`
+
+## 15. Augmentation wiring verified and multi-crop evaluation fixed
+
+We found that the augmented Phase 6 runs produced byte-identical histories to the corresponding non-augmented balanced run, indicating that augmentation was not actually affecting training. The root cause was profile merge order: sweep defaults kept `augmentation.enabled: false`, which overwrote `augmentation.profile: light/medium`. The augmentation configuration is now explicitly resolved and wired into the training dataset, training runs log and save resolved augmentation diagnostics, and a smoke test verifies that augmented training samples change while validation samples remain deterministic.
+
+We also fixed the multi-crop evaluation device mismatch so waveform crops and the log-mel transform stay on the same device (CPU feature extraction, GPU model inference).
+
+This matters because augmentation and multi-crop evaluation are part of the planned experiment story, and silent no-op augmentation would make those ablation results invalid.
+
+Relevant files:
+- `singerclassifier/sweep.py`
+- `singerclassifier/experiments.py`
+- `singerclassifier/data.py`
+- `singerclassifier/train_utils.py`
+- `scripts/train.py`
+- `scripts/smoke_augmentation.py`
+- `scripts/submit_phase6_indexes.sh`
+- `scripts/remote_submit_phase6_indexes.sh`
+- `slurm/phase6_sweep_array.sbatch`
+
+## 16. Multi-crop evaluation device placement fixed
+
+We fixed a device mismatch in the multi-crop evaluation path. The failed multi-crop runs attempted to compute STFT with waveform tensors on CPU while the torchaudio transform window was on CUDA. The evaluation code now moves deterministic waveform crops and the log-mel feature extractor to the same device before computing features, with an explicit buffer-device check to catch regressions.
+
+This matters because the `cnn_augmented_multicrop` experiments are meant to test deterministic crop averaging at evaluation time, and this bug affected only that evaluation path.
+
+Relevant files:
+- `singerclassifier/features.py`
+- `singerclassifier/train_utils.py`
+- `scripts/evaluate.py`
+- `scripts/smoke_multicrop_eval.py`
+- `scripts/train.py`
+
+## 17. Selected Phase 6 rerun helper added
+
+We added a helper script for rerunning selected Phase 6 manifest indexes through SLURM. This allows rerunning only invalidated experiment families, such as the augmented and multi-crop runs, without repeating completed baseline/basic/balanced runs.
+
+Relevant files:
+- `scripts/remote_submit_phase6_indexes.sh`
+- `scripts/submit_phase6_indexes.sh`
+- `slurm/phase6_sweep_array.sbatch`

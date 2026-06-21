@@ -55,6 +55,31 @@ class LogMelSpectrogram(nn.Module):
         return log_mel
 
 
+def assert_waveform_feature_extractor_same_device(
+    waveforms: torch.Tensor,
+    feature_extractor: nn.Module,
+) -> None:
+    """Raise if waveform and torchaudio STFT buffers are on different devices."""
+    target_device = waveforms.device
+    for buffer in feature_extractor.buffers():
+        if buffer.device != target_device:
+            raise RuntimeError(
+                "STFT device mismatch: waveforms on "
+                f"{target_device} but feature extractor buffer on {buffer.device}. "
+                "Move waveform crops and LogMelSpectrogram to the same device before "
+                "feature extraction."
+            )
+        return
+
+    for param in feature_extractor.parameters():
+        if param.device != target_device:
+            raise RuntimeError(
+                "Feature extractor parameter device mismatch: waveforms on "
+                f"{target_device} but parameter on {param.device}."
+            )
+        return
+
+
 class SpectrogramAugment(nn.Module):
     """Lightweight time/frequency masking for log-mel spectrograms."""
 

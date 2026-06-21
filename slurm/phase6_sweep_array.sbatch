@@ -40,9 +40,12 @@ fi
 
 mkdir -p "$REPO_ROOT/slurm/logs"
 
+MANIFEST_ARGS=(--manifest "$MANIFEST" --index "$SLURM_ARRAY_TASK_ID")
+if [[ "${PHASE6_FORCE_RERUN:-0}" != "1" ]]; then
+  MANIFEST_ARGS+=(--skip-existing)
+fi
+
 "$PYTHON" -m Sandbox.singerclassifier.scripts.run_sweep_manifest \
-  --manifest "$MANIFEST" \
-  --index "$SLURM_ARRAY_TASK_ID" \
-  --skip-existing
+  "${MANIFEST_ARGS[@]}"
 
 echo "=== Array task complete ==="
